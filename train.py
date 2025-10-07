@@ -2,10 +2,9 @@ import argparse
 import torch
 from ultralytics import YOLO
 
-# --- Training Configurations ---
 CONFIG = {
     'toy': {
-        'model_name': 'yolo11n.pt',  # CORRECTED: Removed the 'v'
+        'model_name': 'yolo11n.pt',
         'params': {
             'epochs': 50,
             'imgsz': 416,
@@ -18,7 +17,7 @@ CONFIG = {
         }
     },
     'real': {
-        'model_name': 'yolo11s.pt',  # CORRECTED: Removed the 'v'
+        'model_name': 'yolo11s.pt',
         'params': {
             'epochs': 100,
             'imgsz': 640,
@@ -37,15 +36,13 @@ CONFIG = {
 }
 
 def train(version='toy'):
-    """
-    Main function to train and export a YOLOv11 model.
-    """
+    """Train and export a YOLOv11 model."""
     if version not in CONFIG:
         print(f"Error: Invalid version '{version}'. Choose from {list(CONFIG.keys())}")
         return
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    print(f"--- Starting '{version}' version training on device: {device} ---")
+    print(f"Starting '{version}' version training on device: {device}")
     
     config = CONFIG[version]
     model = YOLO(config['model_name'])
@@ -57,25 +54,25 @@ def train(version='toy'):
     )
 
     best_model_path = model.trainer.best
-    print(f"\n--- Exporting best model for Jetson: {best_model_path} ---")
+    print(f"Exporting best model for Jetson: {best_model_path}")
     
     export_model = YOLO(best_model_path)
     
     try:
         export_model.export(format='onnx', dynamic=True, simplify=True)
-        print("✅ ONNX export successful.")
+        print("ONNX export successful.")
     except Exception as e:
-        print(f"❌ ONNX export failed: {e}")
+        print(f"ONNX export failed: {e}")
         
     if device == 'cuda':
         try:
             export_model.export(format='engine', device='cuda', workspace=4)
-            print("✅ TensorRT engine export successful.")
+            print("TensorRT engine export successful.")
         except Exception as e:
-            print(f"⚠️  TensorRT export failed: {e}")
+            print(f"TensorRT export failed: {e}")
 
-    print(f"\n🎉 Training and export for '{version}' version complete!")
-    print(f"Find your results in the '{config['params']['project']}/{config['params']['name']}' directory.")
+    print(f"Training and export for '{version}' version complete!")
+    print(f"Results saved in: '{config['params']['project']}/{config['params']['name']}'")
 
 
 if __name__ == "__main__":
@@ -85,7 +82,7 @@ if __name__ == "__main__":
         type=str, 
         default='toy', 
         choices=['toy', 'real'],
-        help="The training configuration to use: 'toy' for quick testing, 'real' for deployment."
+        help="Training configuration: 'toy' for quick testing, 'real' for deployment."
     )
     args = parser.parse_args()
     
