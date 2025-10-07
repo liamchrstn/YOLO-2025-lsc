@@ -2,12 +2,6 @@
 
 YOLOv11 model for detecting mannequins in two classes: laying and standing. Optimized for NVIDIA Jetson deployment.
 
-## Stack
-- YOLOv11 (Ultralytics)
-- PyTorch
-- TensorRT optimization
-- Python 3.10+
-
 ## Structure
 The project separates source data from processed dataset for reproducible data preparation.
 
@@ -72,3 +66,29 @@ Results saved in `runs/` directory. Models automatically exported to ONNX and Te
 - `prepare_dataset.py` - Convert 4-class labels to 2-class labels
 - `train.py` - Train YOLOv11 model with automatic export
 - `mannequin_dataset.yaml` - Dataset configuration
+
+
+## Tweaking
+
+https://docs.ultralytics.com/modes/train/#augmentation-settings-and-hyperparameters
+
+
+## Jetson Deployment
+
+1.  Copy the `best.onnx` file to your Jetson.
+
+2.  On the Jetson, run:
+    ```bash
+    # Install Ultralytics
+    pip install ultralytics
+
+    # Convert to TensorRT for max speed
+    yolo export model=best.onnx format=engine half=True
+    ```
+
+3.  In your Python script, load the optimized `.engine` file:
+    ```python
+    from ultralytics import YOLO
+    
+    model = YOLO('best.engine')
+    ```

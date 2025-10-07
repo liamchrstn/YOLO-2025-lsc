@@ -1,10 +1,16 @@
+"""
+train.py: Supervised training script for YOLOv11 Mannequin Detection.
+Can be initialized with standard weights or custom DINO pre-trained weights.
+"""
+
 import argparse
 import torch
 from ultralytics import YOLO
 
+# Configuration for 'toy' and 'real' fine-tuning runs
 CONFIG = {
     'toy': {
-        'model_name': 'yolo11n.pt',
+        'model_name': 'models\yolo\yolo11n.pt',
         'params': {
             'epochs': 50,
             'imgsz': 416,
@@ -17,7 +23,7 @@ CONFIG = {
         }
     },
     'real': {
-        'model_name': 'yolo11s.pt',
+        'model_name': 'models\yolo\yolo11s.pt',
         'params': {
             'epochs': 100,
             'imgsz': 640,
@@ -35,26 +41,35 @@ CONFIG = {
     }
 }
 
-def train(version='toy'):
+def train(version='toy', weights_path=None):
     """Train and export a YOLOv11 model."""
     if version not in CONFIG:
         print(f"Error: Invalid version '{version}'. Choose from {list(CONFIG.keys())}")
         return
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    print(f"Starting '{version}' version training on device: {device}")
+    print(f"--- Starting Supervised Fine-tuning ('{version}' version) on device: {device} ---")
     
     config = CONFIG[version]
-    model = YOLO(config['model_name'])
 
+    # Conditionally load the model
+    if weights_path:
+        print(f"Loading custom pre-trained weights from: {weights_path}")
+        model = YOLO(weights_path)  # Load the model structure and weights from your .pt file
+    else:
+        print(f"Loading default COCO pre-trained weights: {config['model_name']}")
+        model = YOLO(config['model_name'])
+
+    # Start the fine-tuning process
     model.train(
         data='mannequin_dataset.yaml',
         device=device,
         **config['params']
     )
 
+    # Export the best performing model for deployment
     best_model_path = model.trainer.best
-    print(f"Exporting best model for Jetson: {best_model_path}")
+    print(f"\nExporting best model for Jetson: {best_model_path}")
     
     export_model = YOLO(best_model_path)
     
@@ -71,7 +86,7 @@ def train(version='toy'):
         except Exception as e:
             print(f"TensorRT export failed: {e}")
 
-    print(f"Training and export for '{version}' version complete!")
+    print(f"\n--- Training and export for '{version}' version complete! ---")
     print(f"Results saved in: '{config['params']['project']}/{config['params']['name']}'")
 
 
@@ -84,6 +99,12 @@ if __name__ == "__main__":
         choices=['toy', 'real'],
         help="Training configuration: 'toy' for quick testing, 'real' for deployment."
     )
+    parser.add_argument(
+        '--weights',
+        type=str,
+        default=None,
+        help="Optional path to custom pre-trained weights (e.g., from DINO-train.py)."
+    )
     args = parser.parse_args()
     
-    train(args.version)
+    train(version=args.version, weights_path=args.weights)
