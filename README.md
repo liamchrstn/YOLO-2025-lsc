@@ -1,94 +1,113 @@
 # YOLOv11 Mannequin Detection
 
-YOLOv11 model for detecting mannequins in two classes: laying and standing. Optimized for NVIDIA Jetson deployment.
-
-## Structure
-The project separates source data from processed dataset for reproducible data preparation.
+A YOLOv11 project to detect mannequins, optimized for NVIDIA Jetson deployment. This project includes an optional self-supervised pre-training step using DINO to improve model accuracy.
+## Project Structure
 
 ```
 YOLO-2025-lsc/
-├── source_data/original_labels/  # Original 4-class labels
 ├── dataset/
-│   ├── images/                   # Training images
-│   └── labels/                   # Generated 2-class labels
-├── runs/                         # Training outputs
-├── prepare_dataset.py            # Data preprocessing
-├── train.py                      # Training script
-└── mannequin_dataset.yaml        # Dataset config
+│   ├── images/train/       # Training images (unlabeled and labeled)
+│   └── labels/train/       # Processed 2-class labels
+├── source_data/            # Original raw data (e.g., 4-class labels)
+├── runs/                   # All training and pre-training outputs
+│
+├── DINO-train.py           # Self-supervised pre-training script
+├── prepare_dataset.py      # Prepares labels for supervised training
+├── train.py                # Supervised fine-tuning script
+│
+├── mannequin_dataset.yaml  # Dataset configuration
+└── requirements.txt        # Project dependencies
 ```
 
 ## Setup
 
-```bash
-# Create virtual environment
-python -m venv venv
-.\venv\Scripts\Activate
+1.  **Create and activate a virtual environment:**
+    ```bash
+    python -m venv venv
+    .\venv\Scripts\Activate
+    ```
 
-# Install dependencies
-pip install -r requirements.txt
+2.  **Install dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    # Ensure PyTorch is installed with the correct CUDA version
+    # Example for CUDA 11.8:
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+    ```
 
-# Install CUDA-enabled PyTorch (check nvidia-smi for CUDA version)
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-```
+## Workflow
 
-## Data Preparation
+The training process is two-phased: optional self-supervised pre-training followed by required supervised fine-tuning.
 
-The original dataset contains 4 classes: `bucket`, `mannequins laying`, `mannequins standing`, `people`. The preparation script filters and remaps to 2 classes for training.
+### 1. Data Preparation
+
+The `prepare_dataset.py` script filters and remaps the original multi-class labels into the two target classes for detection.
 
 **Class Mapping:**
-- `mannequins laying` (class 1) → class 0
-- `mannequins standing` (class 2) → class 1
+- `mannequins laying` (class 1) → `mannequin_laying` (class 0)
+- `mannequins standing` (class 2) → `mannequin_standing` (class 1)
 
+**Execution:**
+Place original labels in `source_data/original_labels/` and all corresponding images in `dataset/images/train/`.
 ```bash
-# Place original labels in source_data/original_labels/
-# Place images in dataset/images/
 python prepare_dataset.py
 ```
+This generates cleaned labels in `dataset/labels/train/`.
 
-Cleaned labels are generated in `dataset/labels/` without modifying source data.
+### 2. Phase 1: Self-Supervised Pre-training (Optional)
 
-## Training
+This step uses DINO to teach the model's backbone to recognize visual features specific to your dataset, using only the raw images.
 
-Two training configurations available:
+**Execution:**
+```bash
+# Quick pre-training run on a YOLOv11n backbone
+python DINO-train.py --version toy
+
+# Longer, more thorough pre-training on a YOLOv11s backbone
+python DINO-train.py --version real
+```
+This produces a custom pre-trained weights file, e.g., `runs/pretrain_dino_toy/exported_models/exported_last.pt`.
+
+### 3. Phase 2: Supervised Fine-tuning
+
+This step trains the model to detect and classify mannequins using the prepared labels. You can start from default COCO weights or your custom DINO pre-trained weights.
+
+**Option A: Fine-tune using custom DINO weights (Recommended)**
+Provide the weights generated in Phase 1 to the training script. This will yield the best results.
 
 ```bash
-# Quick testing (50 epochs, 416px, batch 16)
+python train.py --version toy --weights runs/pretrain_dino_toy/exported_models/exported_last.pt
+```
+
+**Option B: Train from default COCO weights**
+If you skip Phase 1, you can train from the standard public weights.
+
+```bash
+# Quick 'toy' training run
 python train.py --version toy
 
-# Production training (100 epochs, 640px, batch 8, augmentations)
+# Full 'real' training run with augmentations
 python train.py --version real
 ```
 
-Results saved in `runs/` directory. Models automatically exported to ONNX and TensorRT formats.
-
-## Scripts
-
-- `prepare_dataset.py` - Convert 4-class labels to 2-class labels
-- `train.py` - Train YOLOv11 model with automatic export
-- `mannequin_dataset.yaml` - Dataset configuration
-
-
-## Tweaking
-
-https://docs.ultralytics.com/modes/train/#augmentation-settings-and-hyperparameters
-
+All training runs automatically save results to the `runs/` directory and export the best model to ONNX and TensorRT formats.
 
 ## Jetson Deployment
 
-1.  Copy the `best.onnx` file to your Jetson.
-
-2.  On the Jetson, run:
+1.  Copy the `best.onnx` file (found in a subdirectory of `runs/`) to your Jetson.
+2.  On the Jetson, generate the optimized TensorRT engine:
     ```bash
-    # Install Ultralytics
-    pip install ultralytics
-
-    # Convert to TensorRT for max speed
+    # Ensure ultralytics is installed: pip install ultralytics
     yolo export model=best.onnx format=engine half=True
     ```
-
-3.  In your Python script, load the optimized `.engine` file:
+3.  Load the `.engine` file in your application for maximum performance:
     ```python
     from ultralytics import YOLO
     
     model = YOLO('best.engine')
     ```
+
+## Hyperparameter Tuning
+
+For information on augmenting training parameters, refer to the official Ultralytics documentation:
+[Augmentation Settings and Hyperparameters](https://docs.ultralytics.com/modes/train/#augmentation-settings-and-hyperparameters)

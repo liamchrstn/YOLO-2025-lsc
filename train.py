@@ -6,11 +6,12 @@ Can be initialized with standard weights or custom DINO pre-trained weights.
 import argparse
 import torch
 from ultralytics import YOLO
+from pathlib import Path
 
 # Configuration for 'toy' and 'real' fine-tuning runs
 CONFIG = {
     'toy': {
-        'model_name': 'models\yolo\yolo11n.pt',
+        'default_model': 'yolo11n.pt', 
         'params': {
             'epochs': 50,
             'imgsz': 416,
@@ -23,7 +24,7 @@ CONFIG = {
         }
     },
     'real': {
-        'model_name': 'models\yolo\yolo11s.pt',
+        'default_model': 'yolo11s.pt',
         'params': {
             'epochs': 100,
             'imgsz': 640,
@@ -41,7 +42,7 @@ CONFIG = {
     }
 }
 
-def train(version='toy', weights_path=None):
+def train(version='toy', data_path='mannequin_dataset.yaml', weights_path=None):
     """Train and export a YOLOv11 model."""
     if version not in CONFIG:
         print(f"Error: Invalid version '{version}'. Choose from {list(CONFIG.keys())}")
@@ -52,24 +53,34 @@ def train(version='toy', weights_path=None):
     
     config = CONFIG[version]
 
-    # Conditionally load the model
     if weights_path:
-        print(f"Loading custom pre-trained weights from: {weights_path}")
-        model = YOLO(weights_path)  # Load the model structure and weights from your .pt file
+        # Use custom pre-trained weights
+        initial_model_path = Path(weights_path)
+        print(f"Initializing model with custom pre-trained weights: {initial_model_path}")
+        
+        if not initial_model_path.exists():
+            print(f"Error: Weights file not found at '{initial_model_path}'")
+            return
     else:
-        print(f"Loading default COCO pre-trained weights: {config['model_name']}")
-        model = YOLO(config['model_name'])
+        # Use default COCO-pre-trained weights from the root folder
+        initial_model_path = config['default_model']
+        print(f"Initializing model with default COCO weights: {initial_model_path}")
+
+    # This simple constructor works when the library can find the necessary blueprint files.
+    model = YOLO(initial_model_path)
 
     # Start the fine-tuning process
+    print(f"Starting training with '{version}' parameters...")
     model.train(
-        data='mannequin_dataset.yaml',
+        data=data_path,
         device=device,
         **config['params']
     )
 
     # Export the best performing model for deployment
     best_model_path = model.trainer.best
-    print(f"\nExporting best model for Jetson: {best_model_path}")
+    print(f"\nTraining complete. Best model saved at: {best_model_path}")
+    print(f"Exporting best model for deployment...")
     
     export_model = YOLO(best_model_path)
     
@@ -81,7 +92,7 @@ def train(version='toy', weights_path=None):
         
     if device == 'cuda':
         try:
-            export_model.export(format='engine', device='cuda', workspace=4)
+            export_model.export(format='engine', device='cuda', workspace=4, dynamic=False)
             print("TensorRT engine export successful.")
         except Exception as e:
             print(f"TensorRT export failed: {e}")
@@ -92,12 +103,19 @@ def train(version='toy', weights_path=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="YOLOv11 Mannequin Detection Training Script")
+    # ... (parser arguments are the same) ...
     parser.add_argument(
         '--version', 
         type=str, 
         default='toy', 
         choices=['toy', 'real'],
         help="Training configuration: 'toy' for quick testing, 'real' for deployment."
+    )
+    parser.add_argument(
+        '--data',
+        type=str,
+        default='mannequin_dataset.yaml',
+        help="Path to the dataset's .yaml file."
     )
     parser.add_argument(
         '--weights',
@@ -107,4 +125,4 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     
-    train(version=args.version, weights_path=args.weights)
+    train(version=args.version, data_path=args.data, weights_path=args.weights)

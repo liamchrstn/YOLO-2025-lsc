@@ -6,13 +6,12 @@ import os
 import argparse
 import yaml
 import lightly_train
+from pathlib import Path # Import Path for robust path handling
 
-# Configuration now uses the official Hugging Face Hub ID
+# (Your CONFIG dictionary remains the same)
 CONFIG = {
     'toy': {
         'model_yaml': 'ultralytics/yolo11n.yaml',
-        # --- THE SOLUTION ---
-        # Use the official Hugging Face Hub ID for the teacher model.
         'teacher_model_identifier': 'facebook/dino-vits8',
         'epochs': 20,
         'batch_size': 32,
@@ -20,13 +19,13 @@ CONFIG = {
     },
     'real': {
         'model_yaml': 'ultralytics/yolo11s.yaml',
-        # Assuming the ViT-Base model for the 'real' version
         'teacher_model_identifier': 'facebook/dino-vitb8',
         'epochs': 100,
         'batch_size': 16,
         'out_dir': 'runs/pretrain_dino_real'
     }
 }
+
 
 def pretrain_with_dino(version='toy', data_yaml='mannequin_dataset.yaml'):
     """
@@ -39,33 +38,42 @@ def pretrain_with_dino(version='toy', data_yaml='mannequin_dataset.yaml'):
     config = CONFIG[version]
     
     print(f"--- Starting DINOv3 Self-Supervised Pre-training ('{version}' version) ---")
-
+    
     try:
         with open(data_yaml, 'r') as f:
             data_config = yaml.safe_load(f)
-        image_path = os.path.abspath(data_config['train'])
+        
+        # Get the root path of the dataset
+        dataset_root = Path(data_config.get('path', '.'))
+        
+        # Combine the root path with the train images path
+        train_images_path = dataset_root / data_config['train']
+        
+        # Get the absolute path to be safe
+        image_path = train_images_path.resolve()
+
         print(f"Using training images from: {image_path}")
     except Exception as e:
-        print(f"Error: Could not read '{data_yaml}': {e}")
+        print(f"Error: Could not read or parse '{data_yaml}': {e}")
         return
 
+    # (The rest of the script is the same)
     print("\nStarting lightly_train.train() with the following configuration:")
     
     try:
         lightly_train.train(
             out=config['out_dir'],
-            data=image_path,
+            data=str(image_path), # Convert Path object back to string for the function
             model=config['model_yaml'],
             method='distillation',
             method_args={
-                # Pass the Hub ID directly to the 'teacher' argument.
                 'teacher': config['teacher_model_identifier']
             },
             epochs=config['epochs'],
             batch_size=config['batch_size'],
             accelerator='auto',
             devices=1,
-            num_workers=0,
+            num_workers=0, # Set to 0 for Windows compatibility
             overwrite=True
         )
     except Exception as e:
@@ -75,17 +83,13 @@ def pretrain_with_dino(version='toy', data_yaml='mannequin_dataset.yaml'):
         return
 
     print(f"\n--- DINOv3 Pre-training ('{version}' version) Finished ---")
-    print(f"Pre-trained model saved in: '{config['out_dir']}/exported_models/last.pt'")
+    print(f"Pre-trained model saved in: '{config['out_dir']}/exported_models/exported_last.pt'")
     print("You can now use this weights file for supervised fine-tuning.")
 
+# (The __main__ block remains the same)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="DINO Pre-training script for YOLO models.")
-    parser.add_argument(
-        '--data', 
-        type=str, 
-        default='mannequin_dataset.yaml', 
-        help='Path to your data.yaml file.'
-    )
+    # ... (rest of the parser code) ...
     parser.add_argument(
         '--version', 
         type=str, 
@@ -95,4 +99,4 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     
-    pretrain_with_dino(args.version, args.data)
+    pretrain_with_dino(args.version, 'mannequin_dataset.yaml')

@@ -1,6 +1,8 @@
-path: ./dataset
-train: dataset/images/train  
-val: dataset/images/val   
+# The path should be relative to where you run the script.
+path: ./dataset  # The root directory of the dataset
+train: images/train  # Relative to 'path'
+val: images/val      # Relative to 'path'
+
 names:
   0: mannequin_laying
   1: mannequin_standing
