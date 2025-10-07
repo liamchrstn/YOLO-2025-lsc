@@ -1,3 +1,6 @@
+
+
+
 # Python
 __pycache__/
 *.pyc
@@ -15,10 +18,35 @@ build/
 runs/
 *.cache
 
-# Data
-dataset/*
-source_data/*
-!dataset/**/.gitkeep
+# Data - ignore all files but keep directory structure
+# Ignore image files specifically
+dataset/images/**/*.jpg
+dataset/images/**/*.jpeg
+dataset/images/**/*.png
+dataset/images/**/*.bmp
+dataset/images/**/*.gif
+dataset/images/**/*.tiff
+dataset/images/**/*.webp
+
+# Ignore label files specifically  
+dataset/labels/**/*.txt
+
+# Ignore cache files
+dataset/*.cache
+
+# Source data - ignore all files but keep directory structure with .gitkeep
+source_data/original_labels/**/*.txt
+source_data/original_labels/**/*.json
+source_data/original_labels/**/*.xml
+source_data/original_labels/**/*.csv
+source_data/**/*.jpg
+source_data/**/*.jpeg
+source_data/**/*.png
+source_data/**/*.bmp
+source_data/**/*.gif
+source_data/**/*.tiff
+source_data/**/*.webp
+# Keep .gitkeep files in source_data
 !source_data/**/.gitkeep
 
 # Models
@@ -30,3 +58,7 @@ source_data/*
 # IDE
 .vscode/
 .idea/
+
+# Always include .gitkeep files everywhere
+!**/.gitkeep
+!/.gitignore
