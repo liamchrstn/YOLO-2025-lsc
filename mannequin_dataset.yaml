@@ -1,0 +1,11 @@
+# The path should be relative to where you run the script.
+# A single dot '.' means "the current folder".
+path: ./dataset
+train: images/train
+val: images/val
+
+names:
+  0: mannequin_laying     # <-- IMPORTANT: Swapped order to match our remap
+  1: mannequin_standing
+
+nc: 2
