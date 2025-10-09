@@ -39,7 +39,20 @@ CONFIG = {
             'perspective': 0.0, 'flipud': 0.5, 'fliplr': 0.5,
             'mosaic': 1.0, 'mixup': 0.1,
         }
-    }
+    },
+     '1070': {
+        'default_model': 'yolo11n.pt', 
+        'params': {
+            'epochs': 5,
+            'imgsz': 640,
+            'batch': 8,
+            'project': 'runs/1070',
+            'name': 'mannequin_detection_1070ti',
+            'patience': 10,
+            'amp': True,
+            'cache': True,
+        }
+     }
 }
 
 def train(version='toy', data_path='mannequin_dataset.yaml', weights_path=None):
@@ -103,13 +116,12 @@ def train(version='toy', data_path='mannequin_dataset.yaml', weights_path=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="YOLOv11 Mannequin Detection Training Script")
-    # ... (parser arguments are the same) ...
     parser.add_argument(
         '--version', 
         type=str, 
         default='toy', 
-        choices=['toy', 'real'],
-        help="Training configuration: 'toy' for quick testing, 'real' for deployment."
+        choices=['toy', 'real', '1070'],
+        help="Training configuration: 'toy' for quick testing, 'real' for deployment, or '1070' for a 1070 Ti."
     )
     parser.add_argument(
         '--data',

@@ -8,7 +8,6 @@ import yaml
 import lightly_train
 from pathlib import Path # Import Path for robust path handling
 
-# (Your CONFIG dictionary remains the same)
 CONFIG = {
     'toy': {
         'model_yaml': 'ultralytics/yolo11n.yaml',
